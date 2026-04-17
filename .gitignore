@@ -7,6 +7,7 @@ __pycache__/
 *.so
 
 fruit-assistant
+dataset/
 
 # Distribution / packaging
 .Python
