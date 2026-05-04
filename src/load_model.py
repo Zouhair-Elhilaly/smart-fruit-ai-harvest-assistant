@@ -9,7 +9,7 @@ from torchvision import models
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_PATH = PROJECT_ROOT / "models" / "best_model-epoch8.pth"
+MODEL_PATH = PROJECT_ROOT / "models" / "checkpoints" / "best_model.pth"
 
 # Keep this order aligned with the order used during training.
 # PyTorch ImageFolder usually sorts class folders alphabetically.

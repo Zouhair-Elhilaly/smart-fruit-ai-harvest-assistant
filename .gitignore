@@ -6,8 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
-fruit-assistant
-dataset/
+models/
+*.pth
+*.zip
+__pycache__/
 
 # Distribution / packaging
 .Python

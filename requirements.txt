@@ -23,9 +23,3 @@ sentence-transformers>=3.0
 
 # Frontend
 streamlit>=1.36
-
-# Dev tools
-pytest>=8.0
-ruff
-black
-loguru
