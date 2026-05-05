@@ -42,22 +42,33 @@ def _extract_state_dict(checkpoint):
 
     raise ValueError("Unsupported model checkpoint format.")
 
-
 def _build_resnet50(num_classes: int, state_dict: dict) -> nn.Module:
-    """Create the ResNet50 architecture expected by the saved checkpoint."""
+    """Create the ResNet50 architecture matching the trained model."""
     model = models.resnet50(weights=None)
+
+    # Freeze all layers (same as training)
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Unfreeze layer4
+    for param in model.layer4.parameters():
+        param.requires_grad = True
+
     in_features = model.fc.in_features
 
-    if "fc.1.weight" in state_dict:
-        model.fc = nn.Sequential(
-            nn.Dropout(p=0.4),
-            nn.Linear(in_features, num_classes),
-        )
-    else:
-        model.fc = nn.Linear(in_features, num_classes)
+    # Rebuild EXACT same head as training
+    model.fc = nn.Sequential(
+        nn.Linear(in_features, 512),
+        nn.BatchNorm1d(512),
+        nn.ReLU(inplace=True),
+        nn.Dropout(0.4),
+        nn.Linear(512, 128),
+        nn.ReLU(inplace=True),
+        nn.Dropout(0.2),  # dropout / 2
+        nn.Linear(128, num_classes),
+    )
 
     return model
-
 
 def load_model(
     model_path: Path = MODEL_PATH,
