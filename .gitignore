@@ -137,6 +137,9 @@ venv.bak/
 .chroma/
 chroma_data/
 
+# RAG data
+data-RAG
+
 # Spyder project settings
 .spyderproject
 .spyproject
