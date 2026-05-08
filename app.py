@@ -1,5 +1,8 @@
 """Streamlit application for agriculture image classification — AgroScan UI."""
 
+import html
+from typing import Optional
+
 from PIL import Image, UnidentifiedImageError
 import streamlit as st
 from src.load_model import load_model
@@ -314,6 +317,32 @@ html, body, [class*="css"] {
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(74,124,46,0.25); border-radius: 10px; }
+
+/* ── Assistant ── */
+.ag-assistant-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 0.5px solid rgba(74,124,46,0.18);
+    padding: 16px 18px;
+    margin: 8px 0 14px;
+}
+.ag-assistant-card p {
+    font-size: 13px;
+    color: #315A1E;
+    margin: 0 0 4px;
+}
+.ag-assistant-card span {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: rgba(45,80,22,0.48);
+    letter-spacing: 0.4px;
+}
+.ag-source-line {
+    font-size: 12px;
+    color: rgba(45,80,22,0.72);
+    border-bottom: 0.5px solid rgba(74,124,46,0.10);
+    padding: 7px 0;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -325,20 +354,28 @@ def get_cached_model():
     return load_model()
 
 
+@st.cache_resource
+def get_cached_vector_store():
+    """Create the Chroma-backed RAG store once per Streamlit process."""
+    from rag.vector_store import ChromaRAGStore
+
+    return ChromaRAGStore()
+
+
 # ── Helper: confidence bar HTML ────────────────────────────────────────────────
 def confidence_bar_html(pct: float, top_classes: list[tuple[str, float]]) -> str:
     """Return the full result card as an HTML string."""
     bar_width = min(pct, 100)
     chips_html = "".join(
-        f'<span class="ag-chip ag-chip-active">{label} · {score:.1f}%</span>'
+        f'<span class="ag-chip ag-chip-active">{html.escape(label)} · {score:.1f}%</span>'
         if i == 0
-        else f'<span class="ag-chip">{label} · {score:.1f}%</span>'
+        else f'<span class="ag-chip">{html.escape(label)} · {score:.1f}%</span>'
         for i, (label, score) in enumerate(top_classes)
     )
     return f"""
     <div class="ag-result-card">
         <div class="ag-section-label">Prediction result</div>
-        <div class="ag-result-class">{top_classes[0][0] if top_classes else '—'}</div>
+        <div class="ag-result-class">{html.escape(top_classes[0][0]) if top_classes else '—'}</div>
         <div class="ag-result-sci">Confidence · {pct:.2f}%</div>
         <div class="ag-confidence-row">
             <span class="ag-confidence-label-txt">Confidence score</span>
@@ -353,21 +390,37 @@ def confidence_bar_html(pct: float, top_classes: list[tuple[str, float]]) -> str
     """
 
 
-# ── Main ────────────────────────────────────────────────────────────────────────
-def main() -> None:
+def build_prediction_context(prediction: dict, class_names: list[str]) -> str:
+    """Format the latest vision result as optional context for the assistant."""
+    probabilities = prediction.get("probabilities") or []
+    ranked = sorted(
+        zip(class_names, probabilities),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    alternatives = ", ".join(f"{label}: {prob * 100:.2f}%" for label, prob in ranked[:3])
+    return (
+        f"The current uploaded image was classified as '{prediction['class_label']}' "
+        f"with {prediction['confidence'] * 100:.2f}% confidence. "
+        f"Top probabilities: {alternatives}."
+    )
 
-    # ── Header ──
+
+def render_header() -> None:
+    """Render the fixed app header."""
     st.markdown("""
     <div class="ag-header">
         <div>
             <div class="ag-logo-text">AgroScan</div>
-            <div class="ag-logo-sub">Vision · Classify</div>
+            <div class="ag-logo-sub">Vision · Classify · Ask</div>
         </div>
-        <div class="ag-badge">PyTorch · ResNet50</div>
+        <div class="ag-badge">PyTorch · RAG · Groq</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Upload section ──
+
+def render_classifier() -> Optional[dict]:
+    """Render the image classification workflow and return the latest prediction."""
     st.markdown('<div class="ag-section-label">Input image</div>', unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
@@ -377,7 +430,6 @@ def main() -> None:
         label_visibility="visible",
     )
 
-    # ── No file ──
     if uploaded_file is None:
         st.markdown("""
         <div class="ag-status">
@@ -385,22 +437,19 @@ def main() -> None:
             <p>Awaiting image — upload a JPG, JPEG or PNG to begin classification.</p>
         </div>
         """, unsafe_allow_html=True)
-        return
+        return None
 
-    # ── Load image ──
     try:
         image = Image.open(uploaded_file).convert("RGB")
     except UnidentifiedImageError:
         st.error("The uploaded file is not a valid image.")
-        return
+        return None
 
-    # ── Preview ──
     st.markdown('<div class="ag-section-label" style="margin-top:18px;">Preview</div>',
                 unsafe_allow_html=True)
     st.image(image, caption=f"{uploaded_file.name}  ·  {image.width} × {image.height} px",
              use_container_width=True)
 
-    # ── Model inference ──
     try:
         with st.spinner("Running AgroScan model…"):
             model, class_names, device = get_cached_model()
@@ -412,32 +461,25 @@ def main() -> None:
             )
     except FileNotFoundError as error:
         st.error(str(error))
-        return
+        return None
     except Exception as error:
         st.error(f"Prediction failed: {error}")
-        return
+        return None
 
     confidence_pct = prediction["confidence"] * 100
     top_label = prediction["class_label"]
-
-    # ── Build top-N chips (single prediction; extend if your predict fn returns top-k) ──
     top_classes: list[tuple[str, float]] = [(top_label, confidence_pct)]
-    # If predict_image ever returns top_k as a list of (label, score) dicts, map them here.
 
-    # ── Result card ──
-    st.markdown(
-        confidence_bar_html(confidence_pct, top_classes),
-        unsafe_allow_html=True,
-    )
+    st.session_state["last_prediction_context"] = build_prediction_context(prediction, class_names)
 
-    # ── Footer stats row ──
+    st.markdown(confidence_bar_html(confidence_pct, top_classes), unsafe_allow_html=True)
     st.markdown('<div class="ag-divider"></div>', unsafe_allow_html=True)
     st.markdown(f"""
     <div class="ag-metrics-row">
         <div class="ag-metric-mini">
             <div class="ag-metric-mini-label">Predicted class</div>
             <div class="ag-metric-mini-val" style="font-size:13px; font-family:'DM Sans',sans-serif;">
-                {top_label}
+                {html.escape(top_label)}
             </div>
         </div>
         <div class="ag-metric-mini">
@@ -450,6 +492,119 @@ def main() -> None:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    return prediction
+
+
+def _render_sources(sources: list[dict]) -> None:
+    """Render source snippets returned by the retriever."""
+    if not sources:
+        st.caption("No source chunks were retrieved from the vector database.")
+        return
+
+    with st.expander("Retrieved sources", expanded=False):
+        for source in sources:
+            page = source.get("page")
+            page_label = "" if page in (None, -1, "-1") else f" · page {page}"
+            st.markdown(
+                "<div class='ag-source-line'>"
+                f"{html.escape(str(source.get('filename', 'unknown')))}"
+                f"{html.escape(page_label)} · score {float(source.get('score', 0.0)):.3f}"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.caption((source.get("text") or "")[:350])
+
+
+def render_assistant() -> None:
+    """Render the RAG chat assistant."""
+    st.markdown('<div class="ag-section-label">AI assistant</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="ag-assistant-card">
+        <p>Ask questions about Moroccan agriculture, fruit production, policies, or the latest image result.</p>
+        <span>ChromaDB retrieval · SentenceTransformers embeddings · Groq LLM</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    try:
+        vector_store = get_cached_vector_store()
+    except Exception as error:
+        st.error(f"RAG initialization failed: {error}")
+        return
+
+    index_col, count_col = st.columns([1.4, 1])
+    with index_col:
+        if st.button("Build / refresh knowledge base", use_container_width=True):
+            try:
+                with st.spinner("Indexing documents into ChromaDB…"):
+                    summary = vector_store.index_documents()
+                if summary["errors"]:
+                    st.warning(
+                        f"Indexed {summary['chunks_indexed']} chunks, "
+                        f"but {len(summary['errors'])} file(s) raised errors."
+                    )
+                else:
+                    st.success(
+                        f"Indexed {summary['chunks_indexed']} chunks from "
+                        f"{summary['files_indexed']} file(s)."
+                    )
+            except Exception as error:
+                st.error(f"Indexing failed: {error}")
+    with count_col:
+        st.metric("Knowledge chunks", vector_store.count())
+
+    if "rag_messages" not in st.session_state:
+        st.session_state["rag_messages"] = []
+
+    for message in st.session_state["rag_messages"]:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if message["role"] == "assistant":
+                _render_sources(message.get("sources", []))
+
+    user_question = st.chat_input("Ask AgroScan Assistant")
+    if not user_question:
+        return
+
+    st.session_state["rag_messages"].append({"role": "user", "content": user_question})
+    with st.chat_message("user"):
+        st.markdown(user_question)
+
+    try:
+        from rag.chat import answer_question
+
+        extra_context = st.session_state.get("last_prediction_context")
+        with st.chat_message("assistant"):
+            with st.spinner("Retrieving context and asking Groq…"):
+                result = answer_question(
+                    question=user_question,
+                    vector_store=vector_store,
+                    top_k=4,
+                    extra_context=extra_context,
+                )
+            st.markdown(result["answer"])
+            _render_sources(result.get("sources", []))
+
+        st.session_state["rag_messages"].append(
+            {
+                "role": "assistant",
+                "content": result["answer"],
+                "sources": result.get("sources", []),
+            }
+        )
+    except Exception as error:
+        st.error(f"Assistant failed: {error}")
+
+
+# ── Main ────────────────────────────────────────────────────────────────────────
+def main() -> None:
+    render_header()
+
+    vision_tab, assistant_tab = st.tabs(["Crop Vision", "AI Assistant"])
+    with vision_tab:
+        render_classifier()
+    with assistant_tab:
+        render_assistant()
 
 
 if __name__ == "__main__":
