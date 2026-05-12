@@ -72,6 +72,20 @@
 # if __name__ == "__main__":
 #     analyze_dataset()
 
-import chroma
+# import chromadb
 
+# client = chromadb.HttpClient(host='localhost', port=8000)
+# collections = client.list_collections()
 
+# for c in collections:
+#     print(c.name)
+# # print(collections.count())
+# # rag_collection_app
+# # client.delete_collection("rag_collection")
+
+# col = client.get_collection(name="agroscan_rag")
+
+# data = col.get(
+#     limit=1
+# )
+# print(data)

@@ -1,4 +1,6 @@
-"""Streamlit application for agriculture image classification — AgroScan UI."""
+"""Streamlit application for agriculture image classification — AgroScan UI.
+   Redesigned with 2026 Biopunk Lab aesthetic.
+"""
 
 import html
 from typing import Optional
@@ -10,338 +12,614 @@ from src.predict import predict_image
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AgroScan · Crop Vision",
-    page_icon="🌿",
+    page_title="AgroScan · Neural Vision",
+    page_icon="⬡",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# ── Custom CSS ─────────────────────────────────────────────────────────────────
+# ── Custom CSS — 2026 Biopunk Lab Aesthetic ────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;500&display=swap');
 
-/* ── Global reset ── */
+/* ── CSS variables ── */
+:root {
+    --col-bg:       #080C09;
+    --col-surface:  #0E1510;
+    --col-panel:    #121A13;
+    --col-border:   rgba(74,255,107,0.12);
+    --col-border-md:rgba(74,255,107,0.22);
+    --col-accent:   #4AFF6B;
+    --col-accent-dim:#2BBF46;
+    --col-amber:    #F5C842;
+    --col-amber-dim:#B8942E;
+    --col-text:     #E8F0E9;
+    --col-muted:    rgba(232,240,233,0.45);
+    --col-hint:     rgba(232,240,233,0.22);
+    --font-display: 'Syne', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+    --font-body:    'Outfit', sans-serif;
+}
+
+/* ── Global ── */
 html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-body);
+    background: var(--col-bg) !important;
+    color: var(--col-text);
 }
 
 .stApp {
-    background: #F0EBE0;
+    background: var(--col-bg) !important;
+}
+
+/* Scanline texture overlay */
+.stApp::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(74,255,107,0.012) 2px,
+        rgba(74,255,107,0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* ── Hide default Streamlit chrome ── */
 #MainMenu, footer, header { visibility: hidden; }
 .block-container {
     padding: 0 !important;
-    max-width: 780px !important;
-}
-
-/* ── Header banner ── */
-.ag-header {
-    background: #2D5016;
-    padding: 22px 32px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-radius: 0 0 18px 18px;
-    margin-bottom: 28px;
-    position: relative;
-    overflow: hidden;
-}
-.ag-header::before {
-    content: '';
-    position: absolute;
-    right: -30px; top: -40px;
-    width: 200px; height: 200px;
-    border-radius: 50%;
-    border: 1px solid rgba(139,175,114,0.18);
-    pointer-events: none;
-}
-.ag-header::after {
-    content: '';
-    position: absolute;
-    right: 40px; top: -60px;
-    width: 130px; height: 130px;
-    border-radius: 50%;
-    border: 1px solid rgba(139,175,114,0.1);
-    pointer-events: none;
-}
-.ag-logo-text {
-    font-family: 'Playfair Display', serif;
-    font-size: 24px;
-    font-weight: 600;
-    color: #E8F5DA;
-    letter-spacing: -0.4px;
-    line-height: 1.15;
-}
-.ag-logo-sub {
-    font-size: 10px;
-    font-weight: 300;
-    color: rgba(232,245,218,0.55);
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    margin-top: 2px;
-}
-.ag-badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    background: rgba(196,152,42,0.18);
-    color: #E8C96A;
-    border: 1px solid rgba(196,152,42,0.35);
-    padding: 5px 12px;
-    border-radius: 20px;
-    letter-spacing: 0.4px;
+    max-width: 820px !important;
     position: relative;
     z-index: 1;
 }
 
-/* ── Section headings ── */
-.ag-section-label {
-    font-size: 9.5px;
-    font-weight: 500;
-    letter-spacing: 2px;
+/* ── Header ── */
+.ns-header {
+    background: var(--col-surface);
+    border-bottom: 1px solid var(--col-border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+.ns-header::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--col-accent);
+    box-shadow: 0 0 12px var(--col-accent);
+}
+.ns-header::after {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 1px solid var(--col-border);
+}
+.ns-wordmark {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+.ns-logo {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--col-text);
+}
+.ns-logo span {
+    color: var(--col-accent);
+}
+.ns-tagline {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
-    color: #4A7C2E;
-    margin-bottom: 10px;
-    margin-top: 4px;
+    color: var(--col-muted);
+    padding-top: 2px;
+}
+.ns-pill-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ns-pill {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--col-border-md);
+    color: var(--col-accent);
+    background: rgba(74,255,107,0.06);
+}
+.ns-pill.amber {
+    border-color: rgba(245,200,66,0.3);
+    color: var(--col-amber);
+    background: rgba(245,200,66,0.06);
 }
 
-/* ── Upload zone ── */
-.ag-upload-hint {
-    background: #fff;
-    border-radius: 12px;
-    border: 0.5px solid rgba(74,124,46,0.18);
-    padding: 14px 18px 12px;
-    margin-bottom: 8px;
+/* ── Section label ── */
+.ns-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--col-accent-dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-.ag-upload-hint p {
-    font-size: 13px;
-    color: #4A7C2E;
-    margin: 0 0 4px;
+.ns-label::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 1px;
+    background: var(--col-accent-dim);
 }
-.ag-upload-hint span {
-    font-size: 11px;
-    color: rgba(45,80,22,0.5);
-    font-family: 'DM Mono', monospace;
+
+/* ── Panel / card ── */
+.ns-panel {
+    background: var(--col-panel);
+    border: 1px solid var(--col-border);
+    border-radius: 4px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    position: relative;
+}
+.ns-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, var(--col-accent) 0%, transparent 60%);
+    opacity: 0.4;
 }
 
 /* ── File uploader override ── */
 [data-testid="stFileUploader"] {
-    background: #fff;
-    border-radius: 12px;
-    border: 1.5px dashed rgba(74,124,46,0.32) !important;
-    padding: 20px;
+    background: var(--col-panel) !important;
+    border: 1px dashed var(--col-border-md) !important;
+    border-radius: 4px !important;
+    padding: 24px !important;
 }
 [data-testid="stFileUploader"] label {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    color: #4A7C2E !important;
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    color: var(--col-muted) !important;
 }
 [data-testid="stFileUploader"] section {
     border: none !important;
+    background: transparent !important;
 }
 [data-testid="stFileDropzoneInstructions"] {
-    color: rgba(45,80,22,0.6) !important;
-    font-size: 12px !important;
+    color: var(--col-hint) !important;
+    font-size: 11px !important;
+}
+[data-testid="stBaseButton-secondary"] {
+    background: rgba(74,255,107,0.08) !important;
+    border: 1px solid var(--col-border-md) !important;
+    color: var(--col-accent) !important;
+    border-radius: 2px !important;
+    font-family: var(--font-mono) !important;
+    font-size: 11px !important;
+    letter-spacing: 1px !important;
+}
+[data-testid="stBaseButton-secondary"]:hover {
+    background: rgba(74,255,107,0.14) !important;
 }
 
 /* ── Image display ── */
 [data-testid="stImage"] {
-    border-radius: 10px;
+    border-radius: 4px;
     overflow: hidden;
-    border: 0.5px solid rgba(74,124,46,0.15);
+    border: 1px solid var(--col-border);
 }
 [data-testid="stImage"] img {
-    border-radius: 10px;
+    border-radius: 4px;
+    filter: saturate(0.9) contrast(1.05);
 }
 
-/* ── Info / Status box ── */
-.ag-status {
-    background: #fff;
-    border-radius: 10px;
-    border: 0.5px solid rgba(74,124,46,0.18);
-    padding: 12px 16px;
+/* ── Status idle ── */
+.ns-idle {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin: 12px 0;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--col-panel);
+    border: 1px solid var(--col-border);
+    border-radius: 4px;
+    margin: 16px 0;
 }
-.ag-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #7BAD52;
+.ns-idle-icon {
+    width: 32px; height: 32px;
+    border: 1px solid var(--col-border-md);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    animation: ag-pulse 1.6s ease-in-out infinite;
 }
-@keyframes ag-pulse {
-    0%, 100% { opacity: 0.3; transform: scale(0.8); }
-    50%       { opacity: 1;   transform: scale(1.1); }
+.ns-idle-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--col-accent);
+    animation: ns-blink 2s ease-in-out infinite;
 }
-.ag-status p {
+@keyframes ns-blink {
+    0%, 100% { opacity: 0.2; }
+    50%       { opacity: 1; box-shadow: 0 0 6px var(--col-accent); }
+}
+.ns-idle-text {
     font-size: 12px;
-    color: #4A7C2E;
+    color: var(--col-muted);
+    line-height: 1.6;
     margin: 0;
 }
+.ns-idle-text strong {
+    color: var(--col-text);
+    font-weight: 500;
+}
 
-/* ── Result card (dark) ── */
-.ag-result-card {
-    background: #2D5016;
-    border-radius: 14px;
-    padding: 20px 22px 18px;
-    margin-top: 12px;
-    color: #E8F5DA;
+/* ── Result card ── */
+.ns-result {
+    background: var(--col-panel);
+    border: 1px solid var(--col-border-md);
+    border-radius: 4px;
+    padding: 22px 24px 20px;
+    margin-top: 16px;
+    position: relative;
+    overflow: hidden;
 }
-.ag-result-card .ag-section-label {
-    color: rgba(232,245,218,0.45);
-    margin-bottom: 14px;
+.ns-result::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+    background: linear-gradient(90deg, var(--col-accent), var(--col-amber), transparent);
 }
-.ag-result-class {
-    font-family: 'Playfair Display', serif;
-    font-size: 28px;
-    font-weight: 600;
-    color: #E8F5DA;
-    line-height: 1.15;
-    margin-bottom: 4px;
-}
-.ag-result-sci {
-    font-size: 12px;
-    color: #8FAF72;
-    font-style: italic;
+.ns-result-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
     margin-bottom: 20px;
 }
-.ag-confidence-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 8px;
+.ns-result-class {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--col-text);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    margin-bottom: 4px;
 }
-.ag-confidence-label-txt {
+.ns-result-sub {
+    font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: rgba(232,245,218,0.45);
+    color: var(--col-muted);
 }
-.ag-confidence-pct {
-    font-family: 'DM Mono', monospace;
-    font-size: 20px;
+.ns-score-box {
+    text-align: right;
+}
+.ns-score-big {
+    font-family: var(--font-mono);
+    font-size: 36px;
     font-weight: 500;
-    color: #E8C96A;
+    color: var(--col-amber);
+    line-height: 1;
+    letter-spacing: -1px;
 }
-.ag-bar-track {
-    background: rgba(255,255,255,0.1);
-    border-radius: 20px;
-    height: 8px;
-    overflow: hidden;
-    margin-bottom: 18px;
-}
-.ag-bar-fill {
-    height: 100%;
-    border-radius: 20px;
-    background: linear-gradient(90deg, #7BAD52, #E8C96A);
-    position: relative;
-    transition: width 0.6s ease;
+.ns-score-unit {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--col-amber-dim);
+    letter-spacing: 1px;
 }
 
-/* ── Metric cards row ── */
-.ag-metrics-row {
+/* Progress bar */
+.ns-bar-wrap {
+    margin-bottom: 20px;
+}
+.ns-bar-track {
+    height: 3px;
+    background: rgba(74,255,107,0.1);
+    border-radius: 0;
+    overflow: hidden;
+    position: relative;
+}
+.ns-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--col-accent-dim), var(--col-accent), var(--col-amber));
+    position: relative;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ns-bar-fill::after {
+    content: '';
+    position: absolute;
+    right: 0; top: -2px;
+    width: 6px; height: 7px;
+    background: var(--col-amber);
+    border-radius: 1px;
+}
+.ns-bar-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+}
+.ns-bar-legend span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--col-hint);
+    letter-spacing: 1px;
+}
+
+/* ── Alt chips ── */
+.ns-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+.ns-chip {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--col-border);
+    color: var(--col-hint);
+    letter-spacing: 0.5px;
+}
+.ns-chip.active {
+    border-color: rgba(74,255,107,0.4);
+    color: var(--col-accent);
+    background: rgba(74,255,107,0.06);
+}
+
+/* ── Metric row ── */
+.ns-metrics {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 10px;
-    margin-top: 24px;
+    margin-top: 20px;
 }
-.ag-metric-mini {
-    background: #fff;
-    border-radius: 10px;
-    border: 0.5px solid rgba(74,124,46,0.14);
-    padding: 12px 14px;
+.ns-metric {
+    background: var(--col-surface);
+    border: 1px solid var(--col-border);
+    border-radius: 4px;
+    padding: 14px 16px;
 }
-.ag-metric-mini-label {
-    font-size: 9px;
-    letter-spacing: 1.5px;
+.ns-metric-label {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    color: rgba(45,80,22,0.4);
-    margin-bottom: 5px;
+    color: var(--col-hint);
+    margin-bottom: 8px;
 }
-.ag-metric-mini-val {
-    font-family: 'DM Mono', monospace;
-    font-size: 17px;
+.ns-metric-val {
+    font-family: var(--font-mono);
+    font-size: 18px;
     font-weight: 500;
-    color: #2D5016;
-}
-
-/* ── Alternative chips ── */
-.ag-chips-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 7px;
-    margin-top: 4px;
-}
-.ag-chip {
-    font-size: 11px;
-    padding: 4px 11px;
-    border-radius: 20px;
-    border: 0.5px solid rgba(232,245,218,0.18);
-    color: rgba(232,245,218,0.55);
-    font-family: 'DM Sans', sans-serif;
-    white-space: nowrap;
-}
-.ag-chip-active {
-    background: rgba(123,173,82,0.22);
-    border-color: rgba(123,173,82,0.5);
-    color: #D4EBB8;
-}
-
-/* ── Error / warning box override ── */
-[data-testid="stAlert"] {
-    border-radius: 10px;
-    font-size: 13px;
-    font-family: 'DM Sans', sans-serif;
-}
-
-/* ── Spinner text ── */
-[data-testid="stSpinner"] p {
-    font-family: 'DM Sans', sans-serif;
-    color: #4A7C2E !important;
-    font-size: 13px;
+    color: var(--col-text);
+    letter-spacing: -0.5px;
 }
 
 /* ── Divider ── */
-.ag-divider {
-    height: 0.5px;
-    background: rgba(74,124,46,0.12);
-    margin: 20px 0;
+.ns-divider {
+    height: 1px;
+    background: var(--col-border);
+    margin: 24px 0;
+    position: relative;
+}
+.ns-divider::after {
+    content: '⬡';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    color: var(--col-border-md);
+    background: var(--col-bg);
+    padding: 0 8px;
+    letter-spacing: 0;
+}
+
+/* ── Tabs override ── */
+[data-testid="stTabs"] {
+    background: transparent;
+}
+button[data-baseweb="tab"] {
+    font-family: var(--font-mono) !important;
+    font-size: 10px !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    color: var(--col-muted) !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 12px 20px !important;
+    border-bottom: 2px solid transparent !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--col-accent) !important;
+    border-bottom-color: var(--col-accent) !important;
+}
+[data-testid="stTabPanel"] {
+    padding: 24px 0 0 !important;
+}
+[role="tablist"] {
+    border-bottom: 1px solid var(--col-border) !important;
+    gap: 0 !important;
+    background: transparent !important;
+}
+
+/* ── Assistant card ── */
+.ns-assistant-info {
+    background: var(--col-panel);
+    border: 1px solid var(--col-border);
+    border-left: 2px solid var(--col-accent-dim);
+    border-radius: 4px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+}
+.ns-assistant-info p {
+    font-size: 12px;
+    color: var(--col-muted);
+    margin: 0 0 6px;
+    line-height: 1.6;
+}
+.ns-assistant-info span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--col-hint);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ── Buttons ── */
+[data-testid="stButton"] button {
+    background: rgba(74,255,107,0.07) !important;
+    border: 1px solid var(--col-border-md) !important;
+    color: var(--col-accent) !important;
+    border-radius: 2px !important;
+    font-family: var(--font-mono) !important;
+    font-size: 10px !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    padding: 8px 18px !important;
+    transition: background 0.2s, border-color 0.2s !important;
+}
+[data-testid="stButton"] button:hover {
+    background: rgba(74,255,107,0.14) !important;
+    border-color: rgba(74,255,107,0.45) !important;
+}
+
+/* ── Metric widget ── */
+[data-testid="stMetric"] {
+    background: var(--col-panel) !important;
+    border: 1px solid var(--col-border) !important;
+    border-radius: 4px !important;
+    padding: 14px 18px !important;
+}
+[data-testid="stMetricLabel"] {
+    font-family: var(--font-mono) !important;
+    font-size: 9px !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: var(--col-hint) !important;
+}
+[data-testid="stMetricValue"] {
+    font-family: var(--font-mono) !important;
+    font-size: 20px !important;
+    color: var(--col-text) !important;
+}
+
+/* ── Chat messages ── */
+[data-testid="stChatMessage"] {
+    background: var(--col-panel) !important;
+    border: 1px solid var(--col-border) !important;
+    border-radius: 4px !important;
+    margin-bottom: 10px !important;
+    padding: 14px 18px !important;
+}
+[data-testid="stChatMessage"][data-testid*="user"] {
+    border-left: 2px solid var(--col-accent-dim) !important;
+}
+[data-testid="stChatMessage"][data-testid*="assistant"] {
+    border-left: 2px solid var(--col-amber-dim) !important;
+}
+[data-testid="stChatInput"] textarea {
+    background: var(--col-panel) !important;
+    border: 1px solid var(--col-border-md) !important;
+    border-radius: 4px !important;
+    color: var(--col-text) !important;
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: var(--col-hint) !important;
+}
+
+/* ── Alert / error ── */
+[data-testid="stAlert"] {
+    background: rgba(255,60,60,0.08) !important;
+    border: 1px solid rgba(255,60,60,0.2) !important;
+    border-radius: 4px !important;
+    font-family: var(--font-body) !important;
+    font-size: 12px !important;
+    color: #FF8A80 !important;
+}
+
+/* ── Spinner ── */
+[data-testid="stSpinner"] p {
+    font-family: var(--font-mono) !important;
+    font-size: 11px !important;
+    color: var(--col-accent) !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+}
+
+/* ── Expander ── */
+[data-testid="stExpander"] {
+    background: var(--col-panel) !important;
+    border: 1px solid var(--col-border) !important;
+    border-radius: 4px !important;
+}
+[data-testid="stExpander"] summary {
+    font-family: var(--font-mono) !important;
+    font-size: 10px !important;
+    color: var(--col-muted) !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+}
+
+/* ── Source line ── */
+.ns-source-line {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--col-muted);
+    border-bottom: 1px solid var(--col-border);
+    padding: 8px 0;
+    letter-spacing: 0.5px;
 }
 
 /* ── Scrollbar ── */
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(74,124,46,0.25); border-radius: 10px; }
+::-webkit-scrollbar-thumb {
+    background: rgba(74,255,107,0.2);
+    border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(74,255,107,0.4);
+}
 
-/* ── Assistant ── */
-.ag-assistant-card {
-    background: #fff;
-    border-radius: 12px;
-    border: 0.5px solid rgba(74,124,46,0.18);
-    padding: 16px 18px;
-    margin: 8px 0 14px;
+/* ── Columns ── */
+[data-testid="stColumns"] {
+    gap: 12px !important;
 }
-.ag-assistant-card p {
-    font-size: 13px;
-    color: #315A1E;
-    margin: 0 0 4px;
-}
-.ag-assistant-card span {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: rgba(45,80,22,0.48);
-    letter-spacing: 0.4px;
-}
-.ag-source-line {
-    font-size: 12px;
-    color: rgba(45,80,22,0.72);
-    border-bottom: 0.5px solid rgba(74,124,46,0.10);
-    padding: 7px 0;
+
+/* ── Caption ── */
+[data-testid="stCaptionContainer"] {
+    font-family: var(--font-mono) !important;
+    font-size: 10px !important;
+    color: var(--col-hint) !important;
+    letter-spacing: 0.5px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -358,34 +636,47 @@ def get_cached_model():
 def get_cached_vector_store():
     """Create the Chroma-backed RAG store once per Streamlit process."""
     from rag.vector_store import ChromaRAGStore
-
     return ChromaRAGStore()
 
 
-# ── Helper: confidence bar HTML ────────────────────────────────────────────────
-def confidence_bar_html(pct: float, top_classes: list[tuple[str, float]]) -> str:
-    """Return the full result card as an HTML string."""
+# ── Helper: result card HTML ────────────────────────────────────────────────────
+def result_card_html(pct: float, top_classes: list[tuple[str, float]]) -> str:
+    """Return the full result card as an HTML string — 2026 Biopunk style."""
     bar_width = min(pct, 100)
+    top_label = top_classes[0][0] if top_classes else "—"
+
     chips_html = "".join(
-        f'<span class="ag-chip ag-chip-active">{html.escape(label)} · {score:.1f}%</span>'
+        f'<span class="ns-chip active">{html.escape(label)} &nbsp;{score:.1f}%</span>'
         if i == 0
-        else f'<span class="ag-chip">{html.escape(label)} · {score:.1f}%</span>'
+        else f'<span class="ns-chip">{html.escape(label)} &nbsp;{score:.1f}%</span>'
         for i, (label, score) in enumerate(top_classes)
     )
+
     return f"""
-    <div class="ag-result-card">
-        <div class="ag-section-label">Prediction result</div>
-        <div class="ag-result-class">{html.escape(top_classes[0][0]) if top_classes else '—'}</div>
-        <div class="ag-result-sci">Confidence · {pct:.2f}%</div>
-        <div class="ag-confidence-row">
-            <span class="ag-confidence-label-txt">Confidence score</span>
-            <span class="ag-confidence-pct">{pct:.2f}%</span>
+    <div class="ns-result">
+        <div class="ns-label" style="margin-bottom:16px;">Classification output</div>
+        <div class="ns-result-grid">
+            <div>
+                <div class="ns-result-class">{html.escape(top_label)}</div>
+                <div class="ns-result-sub">Identified crop / disease</div>
+            </div>
+            <div class="ns-score-box">
+                <div class="ns-score-big">{pct:.1f}<span style="font-size:18px;">%</span></div>
+                <div class="ns-score-unit">Confidence</div>
+            </div>
         </div>
-        <div class="ag-bar-track">
-            <div class="ag-bar-fill" style="width:{bar_width}%;"></div>
+        <div class="ns-bar-wrap">
+            <div class="ns-bar-track">
+                <div class="ns-bar-fill" style="width:{bar_width}%;"></div>
+            </div>
+            <div class="ns-bar-legend">
+                <span>0%</span>
+                <span>Confidence threshold</span>
+                <span>100%</span>
+            </div>
         </div>
-        <div class="ag-section-label">Top alternatives</div>
-        <div class="ag-chips-row">{chips_html}</div>
+        <div class="ns-label" style="margin-bottom:10px;">Top alternatives</div>
+        <div class="ns-chips">{chips_html}</div>
     </div>
     """
 
@@ -406,25 +697,29 @@ def build_prediction_context(prediction: dict, class_names: list[str]) -> str:
     )
 
 
+# ── Header ──────────────────────────────────────────────────────────────────────
 def render_header() -> None:
-    """Render the fixed app header."""
     st.markdown("""
-    <div class="ag-header">
-        <div>
-            <div class="ag-logo-text">AgroScan</div>
-            <div class="ag-logo-sub">Vision · Classify · Ask</div>
+    <div class="ns-header">
+        <div class="ns-wordmark">
+            <div class="ns-logo">Agro<span>Scan</span></div>
+            <div class="ns-tagline">Neural Vision · RAG · Classify</div>
         </div>
-        <div class="ag-badge">PyTorch · RAG · Groq</div>
+        <div class="ns-pill-group">
+            <div class="ns-pill">PyTorch</div>
+            <div class="ns-pill">ChromaDB</div>
+            <div class="ns-pill amber">Groq LLM</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
 
+# ── Classifier ──────────────────────────────────────────────────────────────────
 def render_classifier() -> Optional[dict]:
-    """Render the image classification workflow and return the latest prediction."""
-    st.markdown('<div class="ag-section-label">Input image</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ns-label">Input image</div>', unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
-        "Drop a crop image here, or click to browse",
+        "Drop a crop image here — JPG, JPEG or PNG",
         type=["jpg", "jpeg", "png"],
         accept_multiple_files=False,
         label_visibility="visible",
@@ -432,9 +727,14 @@ def render_classifier() -> Optional[dict]:
 
     if uploaded_file is None:
         st.markdown("""
-        <div class="ag-status">
-            <div class="ag-dot"></div>
-            <p>Awaiting image — upload a JPG, JPEG or PNG to begin classification.</p>
+        <div class="ns-idle">
+            <div class="ns-idle-icon">
+                <div class="ns-idle-dot"></div>
+            </div>
+            <p class="ns-idle-text">
+                <strong>System idle.</strong> Upload a crop image to begin neural classification.
+                Supported formats: JPG · JPEG · PNG
+            </p>
         </div>
         """, unsafe_allow_html=True)
         return None
@@ -445,13 +745,18 @@ def render_classifier() -> Optional[dict]:
         st.error("The uploaded file is not a valid image.")
         return None
 
-    st.markdown('<div class="ag-section-label" style="margin-top:18px;">Preview</div>',
-                unsafe_allow_html=True)
-    st.image(image, caption=f"{uploaded_file.name}  ·  {image.width} × {image.height} px",
-             use_container_width=True)
+    st.markdown(
+        '<div class="ns-label" style="margin-top:24px;">Image preview</div>',
+        unsafe_allow_html=True,
+    )
+    st.image(
+        image,
+        caption=f"{uploaded_file.name}  ·  {image.width} × {image.height} px",
+        use_container_width=True,
+    )
 
     try:
-        with st.spinner("Running AgroScan model…"):
+        with st.spinner("Running neural scan…"):
             model, class_names, device = get_cached_model()
             prediction = predict_image(
                 image=image,
@@ -470,25 +775,29 @@ def render_classifier() -> Optional[dict]:
     top_label = prediction["class_label"]
     top_classes: list[tuple[str, float]] = [(top_label, confidence_pct)]
 
-    st.session_state["last_prediction_context"] = build_prediction_context(prediction, class_names)
+    st.session_state["last_prediction_context"] = build_prediction_context(
+        prediction, class_names
+    )
 
-    st.markdown(confidence_bar_html(confidence_pct, top_classes), unsafe_allow_html=True)
-    st.markdown('<div class="ag-divider"></div>', unsafe_allow_html=True)
+    st.markdown(result_card_html(confidence_pct, top_classes), unsafe_allow_html=True)
+
+    st.markdown('<div class="ns-divider"></div>', unsafe_allow_html=True)
+
     st.markdown(f"""
-    <div class="ag-metrics-row">
-        <div class="ag-metric-mini">
-            <div class="ag-metric-mini-label">Predicted class</div>
-            <div class="ag-metric-mini-val" style="font-size:13px; font-family:'DM Sans',sans-serif;">
+    <div class="ns-metrics">
+        <div class="ns-metric">
+            <div class="ns-metric-label">Predicted class</div>
+            <div class="ns-metric-val" style="font-size:13px; font-family:var(--font-body); letter-spacing:0;">
                 {html.escape(top_label)}
             </div>
         </div>
-        <div class="ag-metric-mini">
-            <div class="ag-metric-mini-label">Confidence</div>
-            <div class="ag-metric-mini-val">{confidence_pct:.2f}%</div>
+        <div class="ns-metric">
+            <div class="ns-metric-label">Confidence</div>
+            <div class="ns-metric-val">{confidence_pct:.2f}%</div>
         </div>
-        <div class="ag-metric-mini">
-            <div class="ag-metric-mini-label">Classes known</div>
-            <div class="ag-metric-mini-val">{len(class_names)}</div>
+        <div class="ns-metric">
+            <div class="ns-metric-label">Classes known</div>
+            <div class="ns-metric-val">{len(class_names)}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -496,10 +805,10 @@ def render_classifier() -> Optional[dict]:
     return prediction
 
 
+# ── Sources ──────────────────────────────────────────────────────────────────────
 def _render_sources(sources: list[dict]) -> None:
-    """Render source snippets returned by the retriever."""
     if not sources:
-        st.caption("No source chunks were retrieved from the vector database.")
+        st.caption("No source chunks retrieved from the vector database.")
         return
 
     with st.expander("Retrieved sources", expanded=False):
@@ -507,22 +816,22 @@ def _render_sources(sources: list[dict]) -> None:
             page = source.get("page")
             page_label = "" if page in (None, -1, "-1") else f" · page {page}"
             st.markdown(
-                "<div class='ag-source-line'>"
+                "<div class='ns-source-line'>"
                 f"{html.escape(str(source.get('filename', 'unknown')))}"
-                f"{html.escape(page_label)} · score {float(source.get('score', 0.0)):.3f}"
+                f"{html.escape(page_label)} &nbsp;·&nbsp; score {float(source.get('score', 0.0)):.3f}"
                 "</div>",
                 unsafe_allow_html=True,
             )
             st.caption((source.get("text") or "")[:350])
 
 
+# ── Assistant ─────────────────────────────────────────────────────────────────────
 def render_assistant() -> None:
-    """Render the RAG chat assistant."""
-    st.markdown('<div class="ag-section-label">AI assistant</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ns-label">RAG assistant</div>', unsafe_allow_html=True)
     st.markdown("""
-    <div class="ag-assistant-card">
-        <p>Ask questions about Moroccan agriculture, fruit production, policies, or the latest image result.</p>
-        <span>ChromaDB retrieval · SentenceTransformers embeddings · Groq LLM</span>
+    <div class="ns-assistant-info">
+        <p>Ask questions about Moroccan agriculture, fruit production, policies, or the last scanned image.</p>
+        <span>ChromaDB · SentenceTransformers · Groq LLM</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -532,16 +841,16 @@ def render_assistant() -> None:
         st.error(f"RAG initialization failed: {error}")
         return
 
-    index_col, count_col = st.columns([1.4, 1])
+    index_col, count_col = st.columns([1.6, 1])
     with index_col:
         if st.button("Build / refresh knowledge base", use_container_width=True):
             try:
-                with st.spinner("Indexing documents into ChromaDB…"):
+                with st.spinner("Indexing documents…"):
                     summary = vector_store.index_documents()
                 if summary["errors"]:
                     st.warning(
-                        f"Indexed {summary['chunks_indexed']} chunks, "
-                        f"but {len(summary['errors'])} file(s) raised errors."
+                        f"Indexed {summary['chunks_indexed']} chunks — "
+                        f"{len(summary['errors'])} file(s) had errors."
                     )
                 else:
                     st.success(
@@ -562,7 +871,7 @@ def render_assistant() -> None:
             if message["role"] == "assistant":
                 _render_sources(message.get("sources", []))
 
-    user_question = st.chat_input("Ask AgroScan Assistant")
+    user_question = st.chat_input("Ask AgroScan Assistant…")
     if not user_question:
         return
 
@@ -575,7 +884,7 @@ def render_assistant() -> None:
 
         extra_context = st.session_state.get("last_prediction_context")
         with st.chat_message("assistant"):
-            with st.spinner("Retrieving context and asking Groq…"):
+            with st.spinner("Retrieving context · querying Groq…"):
                 result = answer_question(
                     question=user_question,
                     vector_store=vector_store,
@@ -596,11 +905,10 @@ def render_assistant() -> None:
         st.error(f"Assistant failed: {error}")
 
 
-# ── Main ────────────────────────────────────────────────────────────────────────
+# ── Main ─────────────────────────────────────────────────────────────────────────
 def main() -> None:
     render_header()
-
-    vision_tab, assistant_tab = st.tabs(["Crop Vision", "AI Assistant"])
+    vision_tab, assistant_tab = st.tabs(["⬡  Crop Vision", "◈  AI Assistant"])
     with vision_tab:
         render_classifier()
     with assistant_tab:
