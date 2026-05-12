@@ -8,7 +8,7 @@ from typing import Optional
 
 from PIL import Image, UnidentifiedImageError
 import streamlit as st
-from src.blip_caption import BLIPCaptionError, caption_image
+from src.blip_caption import CaptionError, caption_image
 from src.load_model import load_model
 from src.predict import predict_image
 
@@ -818,7 +818,7 @@ def render_classifier() -> Optional[dict]:
     try:
         with st.spinner("Generating BLIP caption…"):
             caption = get_cached_blip_caption(image_bytes)
-    except BLIPCaptionError as error:
+    except CaptionError as error:
         caption_error = str(error)
         st.warning(f"BLIP caption unavailable: {caption_error}")
     except Exception as error:
