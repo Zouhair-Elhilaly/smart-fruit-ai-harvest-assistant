@@ -3,10 +3,12 @@
 """
 
 import html
+from io import BytesIO
 from typing import Optional
 
 from PIL import Image, UnidentifiedImageError
 import streamlit as st
+from src.blip_caption import BLIPCaptionError, caption_image
 from src.load_model import load_model
 from src.predict import predict_image
 
@@ -639,6 +641,13 @@ def get_cached_vector_store():
     return ChromaRAGStore()
 
 
+@st.cache_data(show_spinner=False)
+def get_cached_blip_caption(image_bytes: bytes) -> str:
+    """Generate and cache a BLIP caption for the uploaded image bytes."""
+    image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    return caption_image(image)
+
+
 # ── Helper: result card HTML ────────────────────────────────────────────────────
 def result_card_html(pct: float, top_classes: list[tuple[str, float]]) -> str:
     """Return the full result card as an HTML string — 2026 Biopunk style."""
@@ -681,19 +690,51 @@ def result_card_html(pct: float, top_classes: list[tuple[str, float]]) -> str:
     """
 
 
-def build_prediction_context(prediction: dict, class_names: list[str]) -> str:
-    """Format the latest vision result as optional context for the assistant."""
+def _rank_probabilities(prediction: dict, class_names: list[str]) -> list[tuple[str, float]]:
     probabilities = prediction.get("probabilities") or []
-    ranked = sorted(
+    return sorted(
         zip(class_names, probabilities),
         key=lambda item: item[1],
         reverse=True,
     )
+
+
+def build_vision_payload(
+    prediction: dict,
+    class_names: list[str],
+    caption: str = "",
+    caption_error: Optional[str] = None,
+) -> dict:
+    """Build the structured multimodal payload used by AgroVision AI."""
+    ranked = _rank_probabilities(prediction, class_names)
+    return {
+        "class": prediction.get("class_label", "unknown"),
+        "confidence": float(prediction.get("confidence", 0.0)),
+        "caption": caption or "",
+        "caption_error": caption_error or "",
+        "top_probabilities": [
+            {"class": label, "confidence": float(prob)} for label, prob in ranked[:3]
+        ],
+    }
+
+
+def build_prediction_context(
+    prediction: dict,
+    class_names: list[str],
+    caption: str = "",
+    caption_error: Optional[str] = None,
+) -> str:
+    """Format the latest vision result as optional retrieval context."""
+    ranked = _rank_probabilities(prediction, class_names)
     alternatives = ", ".join(f"{label}: {prob * 100:.2f}%" for label, prob in ranked[:3])
+    caption_line = caption or f"[BLIP caption unavailable: {caption_error or 'not generated'}]"
     return (
-        f"The current uploaded image was classified as '{prediction['class_label']}' "
-        f"with {prediction['confidence'] * 100:.2f}% confidence. "
-        f"Top probabilities: {alternatives}."
+        "Vision Model Output:\n"
+        f"- class: {prediction['class_label']}\n"
+        f"- confidence: {prediction['confidence']:.4f}\n"
+        f"- top probabilities: {alternatives}\n\n"
+        "BLIP Image Caption:\n"
+        f"{caption_line}"
     )
 
 
@@ -739,8 +780,9 @@ def render_classifier() -> Optional[dict]:
         """, unsafe_allow_html=True)
         return None
 
+    image_bytes = uploaded_file.getvalue()
     try:
-        image = Image.open(uploaded_file).convert("RGB")
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
     except UnidentifiedImageError:
         st.error("The uploaded file is not a valid image.")
         return None
@@ -771,15 +813,38 @@ def render_classifier() -> Optional[dict]:
         st.error(f"Prediction failed: {error}")
         return None
 
+    caption = ""
+    caption_error = None
+    try:
+        with st.spinner("Generating BLIP caption…"):
+            caption = get_cached_blip_caption(image_bytes)
+    except BLIPCaptionError as error:
+        caption_error = str(error)
+        st.warning(f"BLIP caption unavailable: {caption_error}")
+    except Exception as error:
+        caption_error = str(error)
+        st.warning(f"BLIP caption failed: {caption_error}")
+
     confidence_pct = prediction["confidence"] * 100
     top_label = prediction["class_label"]
     top_classes: list[tuple[str, float]] = [(top_label, confidence_pct)]
 
+    st.session_state["last_vision_payload"] = build_vision_payload(
+        prediction,
+        class_names,
+        caption=caption,
+        caption_error=caption_error,
+    )
     st.session_state["last_prediction_context"] = build_prediction_context(
-        prediction, class_names
+        prediction,
+        class_names,
+        caption=caption,
+        caption_error=caption_error,
     )
 
     st.markdown(result_card_html(confidence_pct, top_classes), unsafe_allow_html=True)
+    if caption:
+        st.caption(f"BLIP caption: {caption}")
 
     st.markdown('<div class="ns-divider"></div>', unsafe_allow_html=True)
 
@@ -831,7 +896,7 @@ def render_assistant() -> None:
     st.markdown("""
     <div class="ns-assistant-info">
         <p>Ask questions about Moroccan agriculture, fruit production, policies, or the last scanned image.</p>
-        <span>ChromaDB · SentenceTransformers · Groq LLM</span>
+        <span>BLIP · ChromaDB · SentenceTransformers · Groq JSON</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -882,7 +947,8 @@ def render_assistant() -> None:
     try:
         from rag.chat import answer_question
 
-        extra_context = st.session_state.get("last_prediction_context")
+        vision_payload = st.session_state.get("last_vision_payload")
+        extra_context = None if vision_payload else st.session_state.get("last_prediction_context")
         with st.chat_message("assistant"):
             with st.spinner("Retrieving context · querying Groq…"):
                 result = answer_question(
@@ -890,6 +956,7 @@ def render_assistant() -> None:
                     vector_store=vector_store,
                     top_k=4,
                     extra_context=extra_context,
+                    vision_payload=vision_payload,
                 )
             st.markdown(result["answer"])
             _render_sources(result.get("sources", []))
