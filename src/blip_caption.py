@@ -1,12 +1,15 @@
 """
 Local Image Captioning using ViT-GPT2 (no API, fully offline)
 """
+import os
+
+os.environ["HF_HOME"]  = "../models/cash/huggingface"  
+os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "300"
 
 from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
 import torch
 from PIL import Image
-
-
+# Cache models in a local directory
 class CaptionError(Exception):
     pass
 
@@ -61,3 +64,9 @@ def caption_image(image: Image.Image) -> str:
     if _captioner is None:
         _captioner = LocalImageCaptioner()
     return _captioner.caption(image)
+
+
+
+img = Image.open("../assets/overripe.jpg")
+
+print(caption_image(img))
