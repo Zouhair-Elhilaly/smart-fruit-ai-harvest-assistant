@@ -3,6 +3,7 @@
 ## What this project does
 
 - **Vision model (PyTorch / ResNet50)** classifies fruit condition into 3 classes: **overripe / ripe / unripe**.
+- **Energy-based OOD detection** flags high-energy inputs as **UNKNOWN / NOT FRUIT**.
 - **BLIP** generates an image caption (via Hugging Face Inference API).
 - **RAG (ChromaDB + SentenceTransformers)** indexes agriculture PDFs/texts and retrieves relevant chunks.
 - **Groq LLM** generates a **strict JSON** response (grounded in retrieved documents) for advice + prevention.
@@ -21,6 +22,7 @@
 - Environment variables:
   - `GROQ_API_KEY` (Groq)
   - `HUGGINGFACE_API_KEY` (or `HF_API_TOKEN`) for BLIP captioning
+  - `OOD_THRESHOLD` after calibration
 
 ## Environment variables
 
@@ -38,6 +40,15 @@ GROQ_API_KEY=your_groq_key
 HUGGINGFACE_API_KEY=your_hf_key
 # Optional overrides
 # BLIP_MODEL_ID=Salesforce/blip-image-captioning-base
+
+# OOD detection
+# Set by calibration script
+OOD_THRESHOLD=
+OOD_THRESHOLD_PERCENTILE=95
+# Optional validation data overrides
+OOD_VAL_DIR=
+OOD_VAL_CSV=./models/logs/split_val.csv
+OOD_DATA_ROOT=
 ```
 
 ## Directory layout
@@ -46,6 +57,8 @@ HUGGINGFACE_API_KEY=your_hf_key
 - `src/load_model.py` — loads the PyTorch checkpoint
 - `src/predict.py` — runs preprocessing + inference
 - `src/preprocess.py` — image preprocessing (224x224)
+- `src/ood.py` — energy score + threshold-based OOD decision
+- `scripts/calibrate_ood_threshold.py` — calibrates `OOD_THRESHOLD` from validation images
 - `src/blip_caption.py` — BLIP captioning via HuggingFace InferenceClient
 - `rag/vector_store.py` — ChromaDB indexing + search
 - `rag/chat.py` — builds retrieved context and calls Groq
@@ -80,7 +93,11 @@ model, class_names, device = load_model()
 pred = predict_image(image=image, model=model, class_names=class_names, device=device)
 
 print("Predicted class:", pred["class_label"])
+print("Final label:", pred["final_label"])
 print("Confidence:", pred["confidence"])
+print("Energy:", pred["energy_score"])
+print("OOD threshold:", pred["ood_threshold"])
+print("Is OOD:", pred["is_ood"])
 print("Probabilities:", pred["probabilities"])
 ```
 
@@ -90,7 +107,32 @@ Run:
 python local_classify.py
 ```
 
-### 2.2 RAG assistant call (without UI)
+### 2.2 Calibrate Energy-Based OOD detection
+
+Energy is computed from logits:
+
+```text
+energy(x) = -logsumexp(logits)
+```
+
+Use in-distribution validation fruit images to set a threshold. The default policy is the 95th percentile of validation energies, meaning roughly 95% of known validation fruit remain accepted while unusually high-energy samples are flagged as unknown.
+
+```bash
+python scripts/calibrate_ood_threshold.py --val-dir path/to/validation --percentile 95
+```
+
+The script writes the calibrated value to `.env`:
+
+```bash
+OOD_THRESHOLD=...
+```
+
+At inference time:
+
+- if `energy_score > OOD_THRESHOLD`, `final_label` becomes `UNKNOWN / NOT FRUIT`
+- otherwise, `final_label` stays equal to the normal fruit class
+
+### 2.3 RAG assistant call (without UI)
 
 This calls:
 

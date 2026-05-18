@@ -29,8 +29,9 @@ class LocalImageCaptioner:
         self.model.to(self.device)
 
         self.gen_kwargs = {
-            "max_length": 16,
-            "num_beams": 4
+            "max_length": 100,
+            "num_beams": 4,
+            "pad_token_id": self.tokenizer.eos_token_id
         }
 
     def caption(self, image: Image.Image) -> str:
@@ -43,7 +44,9 @@ class LocalImageCaptioner:
                 return_tensors="pt"
             ).pixel_values.to(self.device)
 
-            output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
+            self.model.eval()
+            with torch.no_grad():
+                output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
 
             caption = self.tokenizer.decode(
                 output_ids[0],
@@ -67,6 +70,6 @@ def caption_image(image: Image.Image) -> str:
 
 
 
-img = Image.open("../assets/overripe.jpg")
+# img = Image.open("../assets/overripe.jpg")
 
-print(caption_image(img))
+# print(caption_image(img))

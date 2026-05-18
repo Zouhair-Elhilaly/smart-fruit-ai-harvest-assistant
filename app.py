@@ -708,8 +708,13 @@ def build_vision_payload(
     """Build the structured multimodal payload used by AgroVision AI."""
     ranked = _rank_probabilities(prediction, class_names)
     return {
-        "class": prediction.get("class_label", "unknown"),
+        "class": prediction.get("final_label") or prediction.get("class_label", "unknown"),
+        "raw_class": prediction.get("class_label", "unknown"),
         "confidence": float(prediction.get("confidence", 0.0)),
+        "energy_score": prediction.get("energy_score"),
+        "ood_threshold": prediction.get("ood_threshold"),
+        "is_ood": bool(prediction.get("is_ood", False)),
+        "ood_enabled": bool(prediction.get("ood_enabled", False)),
         "caption": caption or "",
         "caption_error": caption_error or "",
         "top_probabilities": [
@@ -731,7 +736,11 @@ def build_prediction_context(
     return (
         "Vision Model Output:\n"
         f"- class: {prediction['class_label']}\n"
+        f"- final_label: {prediction.get('final_label', prediction['class_label'])}\n"
         f"- confidence: {prediction['confidence']:.4f}\n"
+        f"- energy_score: {prediction.get('energy_score')}\n"
+        f"- ood_threshold: {prediction.get('ood_threshold')}\n"
+        f"- is_ood: {prediction.get('is_ood', False)}\n"
         f"- top probabilities: {alternatives}\n\n"
         "BLIP Image Caption:\n"
         f"{caption_line}"
@@ -826,7 +835,7 @@ def render_classifier() -> Optional[dict]:
         st.warning(f"BLIP caption failed: {caption_error}")
 
     confidence_pct = prediction["confidence"] * 100
-    top_label = prediction["class_label"]
+    top_label = prediction.get("final_label") or prediction["class_label"]
     top_classes: list[tuple[str, float]] = [(top_label, confidence_pct)]
 
     st.session_state["last_vision_payload"] = build_vision_payload(
@@ -863,6 +872,31 @@ def render_classifier() -> Optional[dict]:
         <div class="ns-metric">
             <div class="ns-metric-label">Classes known</div>
             <div class="ns-metric-val">{len(class_names)}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    ood_threshold = prediction.get("ood_threshold")
+    ood_status = "OOD disabled" if ood_threshold is None else (
+        "UNKNOWN / NOT FRUIT" if prediction.get("is_ood") else "Known fruit"
+    )
+    threshold_label = "not set" if ood_threshold is None else f"{float(ood_threshold):.4f}"
+    energy_label = f"{float(prediction.get('energy_score', 0.0)):.4f}"
+    st.markdown(f"""
+    <div class="ns-metrics">
+        <div class="ns-metric">
+            <div class="ns-metric-label">OOD decision</div>
+            <div class="ns-metric-val" style="font-size:13px; font-family:var(--font-body); letter-spacing:0;">
+                {html.escape(ood_status)}
+            </div>
+        </div>
+        <div class="ns-metric">
+            <div class="ns-metric-label">Energy score</div>
+            <div class="ns-metric-val">{html.escape(energy_label)}</div>
+        </div>
+        <div class="ns-metric">
+            <div class="ns-metric-label">OOD threshold</div>
+            <div class="ns-metric-val" style="font-size:13px;">{html.escape(threshold_label)}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
