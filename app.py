@@ -857,6 +857,31 @@ def render_classifier() -> Optional[dict]:
 
     st.markdown('<div class="ns-divider"></div>', unsafe_allow_html=True)
 
+    # ── Proactive AI advice & summary (Groq + RAG) ─────────────────────────
+    try:
+        from llm.proactive_advice_pipeline import run_proactive_advice
+
+        with st.spinner("Generating AI advice..."):
+            vector_store = get_cached_vector_store()
+            vision_payload = st.session_state.get("last_vision_payload") or {}
+            proactive_result = run_proactive_advice(
+                vision_payload=vision_payload,
+                vector_store=vector_store,
+                top_k_per_query=3,
+            )
+
+        summary = proactive_result.get("summary") or ""
+        sources = proactive_result.get("sources") or []
+
+        if summary.strip():
+            st.success("AI advice generated")
+            with st.expander("Advice & Summary", expanded=True):
+                st.markdown(summary)
+            if sources:
+                _render_sources(sources[:4])
+    except Exception as error:
+        st.warning(f"AI advice generation skipped: {error}")
+
     st.markdown(f"""
     <div class="ns-metrics">
         <div class="ns-metric">
