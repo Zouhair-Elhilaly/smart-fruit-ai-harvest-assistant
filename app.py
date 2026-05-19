@@ -1014,8 +1014,8 @@ def render_assistant() -> None:
                     question=user_question,
                     vector_store=vector_store,
                     top_k=4,
-                    extra_context=extra_context,
-                    vision_payload=vision_payload,
+                    # extra_context=extra_context,
+                    # vision_payload=vision_payload,
                 )
             st.markdown(result["answer"])
             _render_sources(result.get("sources", []))
