@@ -954,10 +954,11 @@ def render_assistant() -> None:
     st.markdown('<div class="ns-label">RAG assistant</div>', unsafe_allow_html=True)
     st.markdown("""
     <div class="ns-assistant-info">
-        <p>Ask questions about Moroccan agriculture, fruit production, policies, or the last scanned image.</p>
-        <span>BLIP · ChromaDB · SentenceTransformers · Groq JSON</span>
+        <p>Ask questions about Moroccan agriculture, fruit production, and related policies.</p>
+        <span>ChromaDB · SentenceTransformers · Groq JSON</span>
     </div>
     """, unsafe_allow_html=True)
+
 
     try:
         vector_store = get_cached_vector_store()
@@ -1006,17 +1007,15 @@ def render_assistant() -> None:
     try:
         from rag.chat import answer_question
 
-        vision_payload = st.session_state.get("last_vision_payload")
-        extra_context = None if vision_payload else st.session_state.get("last_prediction_context")
+
         with st.chat_message("assistant"):
             with st.spinner("Retrieving context · querying Groq…"):
                 result = answer_question(
                     question=user_question,
                     vector_store=vector_store,
                     top_k=4,
-                    # extra_context=extra_context,
-                    # vision_payload=vision_payload,
                 )
+
             st.markdown(result["answer"])
             _render_sources(result.get("sources", []))
 
