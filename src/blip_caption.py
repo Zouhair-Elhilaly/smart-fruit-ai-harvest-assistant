@@ -1,37 +1,47 @@
 """
-Local Image Captioning using ViT-GPT2 (no API, fully offline)
+Local Image Captioning using BLIP (offline, CPU-friendly)
+Better than ViT-GPT2 for real projects
 """
+
 import os
 
-os.environ["HF_HOME"]  = "../models/cash/huggingface"  
+# Local cache (important for offline use)
+os.environ["HF_HOME"] = "../models/cache/huggingface/blip"
 os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "300"
 
-from transformers import VisionEncoderDecoderModel, ViTImageProcessor, AutoTokenizer
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import torch
 from PIL import Image
-# Cache models in a local directory
+from transformers import BlipProcessor, BlipForConditionalGeneration
+
+
+# Custom error
 class CaptionError(Exception):
     pass
 
 
 class LocalImageCaptioner:
     def __init__(self):
-        self.model_id = "nlpconnect/vit-gpt2-image-captioning"
+        self.model_id = os.getenv("BLIP_MODEL_ID")
 
         try:
-            self.model = VisionEncoderDecoderModel.from_pretrained(self.model_id)
-            self.processor = ViTImageProcessor.from_pretrained(self.model_id)
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+            # Load processor + model
+            self.processor = BlipProcessor.from_pretrained(self.model_id)
+            self.model = BlipForConditionalGeneration.from_pretrained(self.model_id)
         except Exception as e:
             raise CaptionError(f"Model loading failed: {e}")
 
+        # Device (CPU / GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
 
+        # Generation config (important for quality)
         self.gen_kwargs = {
-            "max_length": 100,
-            "num_beams": 4,
-            "pad_token_id": self.tokenizer.eos_token_id
+            "max_length": 40,
+            "num_beams": 3
         }
 
     def caption(self, image: Image.Image) -> str:
@@ -39,17 +49,18 @@ class LocalImageCaptioner:
             if image.mode != "RGB":
                 image = image.convert("RGB")
 
-            pixel_values = self.processor(
-                images=[image],
-                return_tensors="pt"
-            ).pixel_values.to(self.device)
+            # preprocess image
+            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
 
             self.model.eval()
             with torch.no_grad():
-                output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
+                output = self.model.generate(
+                    **inputs,
+                    **self.gen_kwargs
+                )
 
-            caption = self.tokenizer.decode(
-                output_ids[0],
+            caption = self.processor.decode(
+                output[0],
                 skip_special_tokens=True
             )
 
@@ -59,8 +70,9 @@ class LocalImageCaptioner:
             raise CaptionError(f"Caption generation failed: {e}")
 
 
-# singleton (important for Streamlit performance)
+# Singleton (important for Streamlit / apps)
 _captioner = None
+
 
 def caption_image(image: Image.Image) -> str:
     global _captioner
@@ -69,7 +81,7 @@ def caption_image(image: Image.Image) -> str:
     return _captioner.caption(image)
 
 
-
-# img = Image.open("../assets/overripe.jpg")
-
-# print(caption_image(img))
+# # ---------------- TEST ----------------
+# if __name__ == "__main__":
+#     img = Image.open("../assets/overripe.jpg")
+#     print(caption_image(img))
