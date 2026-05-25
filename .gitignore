@@ -87,9 +87,10 @@ target/
 profile_default/
 ipython_config.py
 
-# md file 
-architecture_description.md
-describe.md
+# md files (ignore docs) 
+*.md
+!README.md
+
 
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is

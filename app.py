@@ -1005,19 +1005,73 @@ def render_assistant() -> None:
         st.markdown(user_question)
 
     try:
-        from rag.chat import answer_question
-
+        from rag.chat import answer_question_decomposed
 
         with st.chat_message("assistant"):
-            with st.spinner("Retrieving context · querying Groq…"):
-                result = answer_question(
+            with st.status("Processing your question...", expanded=True) as status:
+                # Step 1: Query Decomposition
+                status.update(label="Analyzing and decomposing your question...")
+                result = answer_question_decomposed(
                     question=user_question,
                     vector_store=vector_store,
-                    top_k=4,
+                    enable_web_search=True,
                 )
-
+                
+                # If rejected by guardrail, show early
+                if not result.get("is_agriculture", False):
+                    status.update(label="Domain check complete", state="complete")
+                    st.markdown(result["answer"])
+                    st.session_state["rag_messages"].append(
+                        {
+                            "role": "assistant",
+                            "content": result["answer"],
+                            "sources": [],
+                        }
+                    )
+                    return
+                
+                # Display decomposition details
+                decomp_steps = result.get("decomposition_steps", [])
+                if decomp_steps:
+                    st.write(f"**Decomposed into {len(decomp_steps)} sub-question(s):**")
+                    for i, step in enumerate(decomp_steps, 1):
+                        route_badge = "🌐 Web" if step["route"] == "web_search" else "📚 Vector DB"
+                        st.caption(f"{i}. {route_badge} - {step['sub_query']}")
+                
+                # Step 2: Task Execution
+                exec_summary = result.get("execution_summary", {})
+                status.update(
+                    label=f"Executed {exec_summary.get('successful_tasks', 0)}/{exec_summary.get('total_tasks', 0)} tasks",
+                    state="running",
+                )
+                
+                # Step 3: Synthesis
+                status.update(label="Synthesizing final answer...", state="running")
+                
+                # Complete status
+                status.update(
+                    label=f"Complete - Retrieved {exec_summary.get('total_sources', 0)} source(s)",
+                    state="complete",
+                )
+            
+            # Display the answer
             st.markdown(result["answer"])
-            _render_sources(result.get("sources", []))
+            
+            # Display sources if available
+            if result.get("sources"):
+                with st.expander("📖 Retrieved Sources", expanded=False):
+                    sources = result.get("sources", [])
+                    for idx, source in enumerate(sources, 1):
+                        if source.get("type") == "vector_db":
+                            st.write(f"**Source {idx} (VectorDB - Task {source.get('task_idx')})**")
+                            st.caption(f"Query: {source.get('query')}")
+                            st.caption(f"File: {source.get('filename')} | Score: {source.get('score', 0):.2f}")
+                            st.text(source.get("text", "")[:350])
+                        elif source.get("type") == "web_search":
+                            st.write(f"**Source {idx} (Web Search - Task {source.get('task_idx')})**")
+                            st.caption(f"Query: {source.get('query')}")
+                            st.text(source.get("content", "")[:350])
+                        st.divider()
 
         st.session_state["rag_messages"].append(
             {
@@ -1028,6 +1082,8 @@ def render_assistant() -> None:
         )
     except Exception as error:
         st.error(f"Assistant failed: {error}")
+        import traceback
+        st.caption(traceback.format_exc())
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────────
