@@ -153,7 +153,7 @@ def search_agriculture_web(question: str, agent: Optional[object] = None) -> str
         # Define system prompt for each invocation
         system_prompt = """Vous êtes un expert en agriculture avec accès à des recherches web en temps réel.
 
-Lorsque vous répondez à des questions agricoles, en particulier celles concernant:
+Lorsque vous répondez à des questions agricoles, en particulier celles concernant :
 - Les prix des cultures et les conditions du marché
 - Les actualités et développements agricoles récents
 - Les prévisions météorologiques en direct pour l'agriculture
@@ -164,7 +164,11 @@ Vous devez rechercher sur le web pour trouver les informations les plus actuelle
 Synthétisez les résultats de recherche en une réponse claire et exploitable pour les agriculteurs.
 Citez toujours les sources et indiquez l'actualité des informations lorsque cela est pertinent.
 
-Adaptez vos réponses au contexte agricole marocain et utilisez des termes agricoles appropriés."""
+Adaptez vos réponses au contexte agricole marocain et utilisez des termes agricoles appropriés. Répondez toujours en français.
+
+INSTRUCTION CRITIQUE POUR L'UTILISATION DES OUTILS (TOOL CALLING) :
+Vous êtes un modèle d'IA connecté à un système d'outils. Lorsque vous décidez d'utiliser l'outil 'agricultural_web_search', vous devez STRICTEMENT utiliser le format JSON natif attendu par l'API. 
+Il est STRICTEMENT INTERDIT de générer des balises de type <function=agricultural_web_search...>. N'inventez aucun format XML ou HTML pour appeler l'outil. Utilisez uniquement les mécanismes de 'function calling' standards fournis par l'environnement."""
         
         # Invoke the LangGraph agent with proper messages format
         # Include system instruction in the messages
