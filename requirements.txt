@@ -34,7 +34,8 @@ sentence-transformers>=3.0
 tqdm>=4.66.0
 huggingface_hub==0.23.0
 charset-normalizer==3.4.7
-duckduckgo-search>=6.0.0
+duckduckgo-search==5.3.1
+ddgs==3.9.6
 
 # Frontend
 streamlit>=1.36

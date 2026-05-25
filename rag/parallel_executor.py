@@ -164,6 +164,7 @@ class ParallelExecutor:
     ) -> List[ExecutionResult]:
         """
         Synchronous wrapper around execute_all() for use in non-async contexts.
+        Handles Streamlit threading issues by safely creating event loops.
         
         Args:
             tasks: List of dicts with 'sub_query' and 'route' keys
@@ -173,8 +174,14 @@ class ParallelExecutor:
             List of ExecutionResults
         """
         try:
-            # Check if there's an existing event loop
-            loop = asyncio.get_event_loop()
+            # Safe event loop handling for Streamlit threading
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # Streamlit creates new threads without event loops
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
             if loop.is_running():
                 # If loop is already running, use a new thread
                 import concurrent.futures
@@ -185,6 +192,6 @@ class ParallelExecutor:
                     ).result()
             else:
                 return asyncio.run(self.execute_all(tasks, vector_top_k))
-        except RuntimeError:
-            # No event loop, create a new one
-            return asyncio.run(self.execute_all(tasks, vector_top_k))
+        except Exception as e:
+            logger.error(f"Error in execute_sync: {e}", exc_info=True)
+            raise

@@ -52,14 +52,16 @@ def generate_proactive_queries(vision_payload: dict) -> list[str]:
     max_tokens = int(os.getenv("GROQ_MAX_TOKENS", "450"))
 
     system_prompt = (
-        "You are AgroVision Proactive Advice Planner."
-        "Analyze vision_payload fields (fruit class, confidence, BLIP caption)"
-        "to deduce the physical state of the crop (healthy, diseased, spoiled/rotten, or unripe/overripe if relevant)."
-        "Then output 1 to 3 targeted RAG search queries for an Oman agricultural knowledge base."
-        "Queries must be short and retrieval-focused (not full sentences)."
-        "If the crop seems healthy/fresh, prioritize storage/shelf-life and handling advice."
-        "If diseased or spoiled/rotten, prioritize treatment, quarantine, sanitation, and disposal guidance."
-    )
+    "Tu es AgroVision, un expert en planification agricole proactive pour le Maroc. "
+    "Analyse les champs du 'vision_payload' (classe du fruit, score de confiance, légende BLIP) "
+    "pour déduire l'état physique de la culture (saine, malade, gâtée/pourrie, ou stade de maturité). "
+    "En fonction de cet état, génère 1 à 3 requêtes de recherche RAG ciblées en FRANÇAIS, car la base de connaissances est en français. "
+    "Les requêtes doivent être concises, techniques et optimisées pour la recherche documentaire (mots-clés, pas de phrases complètes). "
+    "Instructions contextuelles : "
+    "1. Si la culture est saine : Priorise les conseils de conservation, de logistique et de prolongation de la durée de vie (post-récolte). "
+    "2. Si la culture est malade ou pourrie : Priorise les traitements phytosanitaires autorisés au Maroc, les mesures de quarantaine, l'assainissement et les méthodes d'élimination sûres. "
+    "Assure-toi que les termes techniques correspondent aux pratiques agricoles locales au Maroc."
+)
 
     user_message = _json_text(
         {
@@ -90,6 +92,7 @@ def generate_proactive_queries(vision_payload: dict) -> list[str]:
     text = (completion.choices[0].message.content or "").strip()
     if not text:
         return []
+    print("Raw Groq queries response:", text)
 
     try:
         parsed = json.loads(text)
