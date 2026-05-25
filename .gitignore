@@ -87,9 +87,11 @@ target/
 profile_default/
 ipython_config.py
 
-# md files (ignore docs) 
+# md files (ignore docs) (keep only top-level README.md)
 *.md
-!README.md
+!/README.md
+
+
 
 
 # pyenv
