@@ -98,8 +98,9 @@ def generate_proactive_queries(vision_payload: dict) -> list[str]:
         parsed = json.loads(text)
     except json.JSONDecodeError:
         return []
-
+    
     queries = parsed.get("suggested_queries") or parsed.get("queries") or parsed.get("sub_queries")
+    print("\n\nthe query for crop viison is : ",queries,"\n\n")
     if not isinstance(queries, list):
         return []
 

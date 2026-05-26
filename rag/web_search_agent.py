@@ -47,10 +47,10 @@ def agricultural_web_search(query: str) -> str:
             # Search in French for Moroccan agricultural context
             results = list(ddgs.text(
                 query,
-                lang="fr",      # French language for Morocco context
                 region="fr",    # France region settings
                 max_results=5   # Get top 5 results
             ))
+        #  lang="fr",      # French language for Morocco context
         
         if not results:
             logger.warning(f"No search results found for query: {query}")
